@@ -1,0 +1,12 @@
+server:
+  port: 8090
+
+management:
+  server.port: 8092
+  endpoints:
+    web:
+      exposure.include: info, beans, env, heapdump, metrics, health, h2console
+
+  metrics:
+    tags:
+      service: search

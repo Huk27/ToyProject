@@ -1,0 +1,8 @@
+jar {enabled = true}
+bootJar {enabled = true}
+
+dependencies {
+    implementation project(":common")
+    api project(":dao-common")
+    implementation project(":model")
+}

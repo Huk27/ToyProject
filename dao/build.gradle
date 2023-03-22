@@ -1,0 +1,6 @@
+dependencies {
+    api project(":dao-common")
+    api project(":dao-entity")
+    api project(":dao-kakao")
+    api project(":dao-naver")
+}
