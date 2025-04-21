@@ -1,12 +1,18 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
 rootProject.name = 'toyProject'
+
 include 'api'
 include 'bo'
 include 'dao-kakao'
 include 'dao'
 include 'model'
 include 'dao-entity'
-include 'api'
 include 'dao-common'
 include 'common'
 include 'dao-naver'
-
