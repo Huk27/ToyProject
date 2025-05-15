@@ -120,7 +120,7 @@ public class SearchService {
                     return Mono.just(count.get());
                 })
                 .defaultIfEmpty(0L)
-                ;
+                ; 
 
         Mono<SearchResponse> kakaoCall = Mono.zip(
                     saveIncrementIntoCache,
