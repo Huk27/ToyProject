@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -44,7 +45,7 @@ public class SearchService {
     private final ExternalSearchResponseConverter externalSearchResponseConverter;
     private final SearchCountRepository searchCountRepository;
 
-    private boolean syncRunning;
+    private final AtomicBoolean syncRunning = new AtomicBoolean(false);
 
     LoadingCache<String, AtomicLong> searchIncrementCountStoreCache = Caffeine.newBuilder()
             .expireAfterWrite(60, TimeUnit.SECONDS)
@@ -71,27 +72,29 @@ public class SearchService {
 
     @Scheduled(fixedRate = 1000 * 60, initialDelay = 1000 * 60)
     public void syncIncrementDataToDBAndExpireHot() {
-        if (!syncRunning) {
-            syncRunning = true;
+        if (syncRunning.compareAndSet(false, true)) {
             log.warn("## sync start..");
-            ConcurrentMap<String, AtomicLong> copiedConcurrentMap = new ConcurrentHashMap<>();
-            copiedConcurrentMap.putAll(searchIncrementCountStoreCache.asMap());
-            searchIncrementCountStoreCache.invalidateAll();
-            hotSearchCountStoreCache.invalidateAll();
-            Flux.fromIterable(copiedConcurrentMap.entrySet())
-                    .flatMap(entry -> Mono.fromCallable(() -> {
-                        log.warn("## increase sync[{}] : +{}", entry.getKey(), entry.getValue().get());
-                        searchCountRepository.increaseCount(entry.getKey(), entry.getValue().get());
-                        return entry;
-                    }))
-                    .doFinally(signalType -> syncRunning = false)
-                    .subscribe();
+            try {
+                ConcurrentMap<String, AtomicLong> copiedConcurrentMap = new ConcurrentHashMap<>();
+                copiedConcurrentMap.putAll(searchIncrementCountStoreCache.asMap());
+                searchIncrementCountStoreCache.invalidateAll();
+                hotSearchCountStoreCache.invalidateAll();
+                Flux.fromIterable(copiedConcurrentMap.entrySet())
+                        .flatMap(entry -> Mono.fromCallable(() -> {
+                            log.warn("## increase sync[{}] : +{}", entry.getKey(), entry.getValue().get());
+                            searchCountRepository.increaseCount(entry.getKey(), entry.getValue().get());
+                            return entry;
+                        }))
+                        .subscribe();
+            } finally {
+                syncRunning.set(false);
+            }
         }
     }
 
     private List<SearchHot10Response.SearchCountInfo> buildHotTop10SearchKeyword(String key) {
         return searchCountRepository.FindTop10OrderByCountDesc()
-                .stream().map(r -> externalSearchResponseConverter.searchCountEntityToSearchCountInfo(r)).collect(Collectors.toList());
+                .stream().map(r -> externalSearchResponseConverter.searchCountEntityToSearchCountInfo(r)).toList();
     }
     private AtomicLong buildViewCountIncrementStoreCache(String keyWord) {
         return new AtomicLong(0L);
